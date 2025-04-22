@@ -16,11 +16,10 @@ st.write("Choose the fruits you want in your custom smoothie!")
 name_on_order = st.text_input('Name on smoothie:')
 st.write(f'The name on your smoothie will be: {name_on_order}')
 
-# Get fruit options from Snowflake (case-sensitive table and column names)
+# Get fruit options from Snowflake
 try:
     my_dataframe = session.table('smoothies.public."FRUIT_OPTIONS"').select(
-        col('"FRUIT_NAME"'),
-        col('"SEARCH_ON"')
+        col('"FRUIT_NAME"')
     )
     st.write("✅ Successfully connected to the `FRUIT_OPTIONS` table.")
     
@@ -45,25 +44,24 @@ if ingredient_list:
     for fruit_chosen in ingredient_list:
         ingredient_string += fruit_chosen + ' '
         
-        # Find the search value for the fruit
-        search_on = pd_df.loc[pd_df['FRUIT_NAME'] == fruit_chosen, 'SEARCH_ON'].iloc[0]
+        # Use lowercase fruit name as the search key for the API
+        search_on = fruit_chosen.lower()
         st.write(f'The search value for {fruit_chosen} is {search_on}.')
         
-        # Display nutritional information from an external API (example with watermelon)
+        # Display nutritional information from external API
         st.subheader(f"{fruit_chosen} Nutrition Information")
         smoothie_response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{search_on}")
         
         if smoothie_response.status_code == 200:
-            # Convert JSON response to DataFrame and display it
             smoothie_data = smoothie_response.json()
             st.dataframe(smoothie_data, use_container_width=True)
         else:
             st.error(f"Failed to fetch nutrition data for {fruit_chosen}.")
 
-    # Prepare the SQL statement for inserting the order
+    # Prepare SQL statement for inserting the order
     my_insert_stmt = f"""
         INSERT INTO smoothies.public."ORDERS" (ingredients, name_on_order)
-        VALUES ('{ingredient_string}', '{name_on_order}')
+        VALUES ('{ingredient_string.strip()}', '{name_on_order}')
     """
     
     # Insert order into Snowflake
@@ -76,4 +74,3 @@ if ingredient_list:
         except Exception as e:
             st.error("❌ Error inserting order into the database.")
             st.exception(e)
-
