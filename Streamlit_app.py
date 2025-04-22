@@ -64,6 +64,7 @@ if incredient_list:
         if smoothiefroot_response.status_code == 200:
             nutrition_data = smoothiefroot_response.json()
             st.dataframe(pd.DataFrame(nutrition_data), use_container_width=True)
+            st.stop
         else:
             st.error(f"Error fetching data for {fruit_chosen}: {smoothiefroot_response.status_code}")
 
