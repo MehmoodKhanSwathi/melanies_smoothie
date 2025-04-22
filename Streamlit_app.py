@@ -3,21 +3,21 @@ import streamlit as st
 import pandas as pd
 from snowflake.snowpark.functions import col
 
-# Fetch Snowflake connection details from secrets
+# Access Snowflake connection details from Streamlit secrets
 snowflake_creds = st.secrets["snowflake"]
 
-# Set up the connection to Snowflake
+# Set up the Snowflake connection using the credentials from the secrets
 try:
-    # Use the Snowflake connection credentials from secrets.toml
-    cnx = st.connection(
-        "snowflake",
+    # Make sure the connection name 'snowflake' matches what you have in Streamlit secrets
+    cnx = st.experimental_connection(
+        "snowflake",  # This is the name you are giving to the connection
         user=snowflake_creds["user"],
         password=snowflake_creds["password"],
         account=snowflake_creds["account"],
         warehouse=snowflake_creds["warehouse"],
         database=snowflake_creds["database"],
         schema=snowflake_creds["schema"],
-        role=snowflake_creds.get("role")  # Optional
+        role=snowflake_creds.get("role", "")  # Optional: only if you're using a custom role
     )
     session = cnx.session()
     st.success("✅ Connected to Snowflake successfully!")
@@ -26,7 +26,7 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-# Write directly to the app
+# Rest of the app code
 st.title(":cup_with_straw: Customize Your Smoothie! :cup_with_straw:")
 st.write(
   """Choose the fruits you want in your custom smoothie!
