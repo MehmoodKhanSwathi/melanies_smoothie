@@ -43,5 +43,5 @@ if incredient_list:
 # Optional: API response section
 smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
 st.text("API Response:")
-st.text(smoothiefroot_response)
+st.text(smoothiefroot_response.json())
 # st.json(smoothiefroot_response.json())  # Uncomment if you want JSON
