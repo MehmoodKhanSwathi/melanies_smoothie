@@ -1,76 +1,63 @@
 # Import python packages
 import requests
 import streamlit as st
-from snowflake.snowpark import Session
+import pandas as pd
 from snowflake.snowpark.functions import col
 
-# Setup Snowflake session using secrets
-connection_parameters = st.secrets["snowflake"]
-session = Session.builder.configs(connection_parameters).create()
-
-# App title
+# Write directly to the app
 st.title(":cup_with_straw: Customize Your Smoothie! :cup_with_straw:")
-st.write("Choose the fruits you want in your custom smoothie!")
+st.write(
+  """Choose the fruits you want in your custom smoothie!
+  """
+)
 
-# Name on order
 name_on_order = st.text_input('Name on smoothie:')
 st.write(f'The name on your smoothie will be: {name_on_order}')
 
-# Get fruit options from Snowflake
-try:
-    my_dataframe = session.table('smoothies.public."FRUIT_OPTIONS"').select(
-        col('"FRUIT_NAME"')
-    )
-    st.write("✅ Successfully connected to the `FRUIT_OPTIONS` table.")
+cnx = st.connection("snowflake")
+session = cnx.session()
+my_dataframe = (session.table("smoothies.public.fruit_options")
+                .select(col('FRUIT_NAME'),
+                       col('SEARCH_ON')))
+# st.dataframe(data=my_dataframe, use_container_width=True)
+# st.stop()
+
+# Convert Snowpark Dataframe to Pandas Dataframe
+pd_df = my_dataframe.to_pandas()
+# st.dataframe(pd_df)
+# st.stop()
+
+incredient_list = st.multiselect(
+    'Choose upto 5 ingredients:',
+    my_dataframe,
+    max_selections=5)
+
+if incredient_list:
+    # st.write(incredient_list)
+    # st.text(incredient_list)
     
-    # Convert Snowpark DataFrame to Pandas DataFrame
-    pd_df = my_dataframe.to_pandas()
+    incredient_string = ''
+    for fruit_chosen in incredient_list:
+        incredient_string += fruit_chosen + ' '
 
-except Exception as e:
-    st.error("❌ Error retrieving data from `smoothies.public.FRUIT_OPTIONS`.")
-    st.exception(e)
-    st.stop()
-
-# Display fruit options in a multiselect
-ingredient_list = st.multiselect(
-    'Choose up to 5 ingredients:',
-    pd_df['FRUIT_NAME'].tolist(),
-    max_selections=5
-)
-
-if ingredient_list:
-    ingredient_string = ''
-    
-    for fruit_chosen in ingredient_list:
-        ingredient_string += fruit_chosen + ' '
-        
-        # Use lowercase fruit name as the search key for the API
-        search_on = fruit_chosen.lower()
-        st.write(f'The search value for {fruit_chosen} is {search_on}.')
-        
-        # Display nutritional information from external API
+        search_on=pd_df.loc[pd_df['FRUIT_NAME'] == fruit_chosen, 'SEARCH_ON'].iloc[0]
+        st.write('The search value for ', fruit_chosen,' is ', search_on, '.')
+      
         st.subheader(f"{fruit_chosen} Nutrition Information")
-        smoothie_response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{search_on}")
+        smoothiefroot_response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{search_on}")
+        # st.text(smoothiefroot_response.json())
+        sf_df = st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
         
-        if smoothie_response.status_code == 200:
-            smoothie_data = smoothie_response.json()
-            st.dataframe(smoothie_data, use_container_width=True)
-        else:
-            st.error(f"Failed to fetch nutrition data for {fruit_chosen}.")
 
-    # Prepare SQL statement for inserting the order
-    my_insert_stmt = f"""
-        INSERT INTO smoothies.public."ORDERS" (ingredients, name_on_order)
-        VALUES ('{ingredient_string.strip()}', '{name_on_order}')
-    """
+    # st.write(incredient_string)
     
-    # Insert order into Snowflake
+    my_insert_stmt = f"""insert into smoothies.public.orders(ingredients, name_on_order)
+                         values('{incredient_string}', '{name_on_order}')"""
+    
+    # st.write(my_insert_stmt)
     time_to_insert = st.button('Submit Order')
-    
+
     if time_to_insert:
-        try:
-            session.sql(my_insert_stmt).collect()
-            st.success(f'Your Smoothie is ordered, {name_on_order}!', icon="✅")
-        except Exception as e:
-            st.error("❌ Error inserting order into the database.")
-            st.exception(e)
+        session.sql(my_insert_stmt).collect()
+        st.success(f'Your Smoothie is ordered, {name_on_order}!', icon="✅")
+        
